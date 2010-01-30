@@ -1,9 +1,10 @@
 #line 1
 package Sub::Uplevel;
 
+use 5.006;
 use strict;
-use vars qw($VERSION @ISA @EXPORT);
-$VERSION = '0.18';
+our $VERSION = '0.22';
+$VERSION = eval $VERSION;
 
 # We must override *CORE::GLOBAL::caller if it hasn't already been 
 # overridden or else Perl won't see our local override later.
@@ -12,20 +13,54 @@ if ( not defined *CORE::GLOBAL::caller{CODE} ) {
     *CORE::GLOBAL::caller = \&_normal_caller;
 }
 
-require Exporter;
-@ISA = qw(Exporter);
-@EXPORT = qw(uplevel);
+# modules to force reload if ":aggressive" is specified
+my @reload_list = qw/Exporter Exporter::Heavy/;
 
-#line 79
+sub import {
+  no strict 'refs';
+  my ($class, @args) = @_;
+  for my $tag ( @args, 'uplevel' ) {
+    if ( $tag eq 'uplevel' ) {
+      my $caller = caller(0);
+      *{"$caller\::uplevel"} = \&uplevel;
+    }
+    elsif( $tag eq ':aggressive' ) {
+      _force_reload( @reload_list );
+    }
+    else {
+      die qq{"$tag" is not exported by the $class module\n}
+    }
+  }
+  return;
+}
 
-use vars qw/@Up_Frames $Caller_Proxy/;
+sub _force_reload {
+  no warnings 'redefine';
+  local $^W = 0;
+  for my $m ( @_ ) {
+    $m =~ s{::}{/}g;
+    $m .= ".pm";
+    require $m if delete $INC{$m};
+  }
+}
+  
+#line 113
+
 # @Up_Frames -- uplevel stack
 # $Caller_Proxy -- whatever caller() override was in effect before uplevel
+our (@Up_Frames, $Caller_Proxy);
+
+sub _apparent_stack_height {
+    my $height = 1; # start above this function 
+    while ( 1 ) {
+        last if ! defined scalar $Caller_Proxy->($height);
+        $height++;
+    }
+    return $height - 1; # subtract 1 for this function
+}
 
 sub uplevel {
     my($num_frames, $func, @args) = @_;
-    
-    local @Up_Frames = ($num_frames, @Up_Frames );
     
     # backwards compatible version of "no warnings 'redefine'"
     my $old_W = $^W;
@@ -39,21 +74,40 @@ sub uplevel {
     # restore old warnings state
     $^W = $old_W;
 
+    if ( $num_frames >= _apparent_stack_height() ) {
+      require Carp;
+      Carp::carp("uplevel $num_frames is more than the caller stack");
+    }
+
+    local @Up_Frames = ($num_frames, @Up_Frames );
+    
     return $func->(@args);
 }
 
-sub _normal_caller (;$) {
+sub _normal_caller (;$) { ## no critic Prototypes
     my $height = $_[0];
     $height++;
-    if( wantarray and !@_ ) {
-        return (CORE::caller($height))[0..2];
+    if ( CORE::caller() eq 'DB' ) {
+        # passthrough the @DB::args trick
+        package DB;
+        if( wantarray and !@_ ) {
+            return (CORE::caller($height))[0..2];
+        }
+        else {
+            return CORE::caller($height);
+        }
     }
     else {
-        return CORE::caller($height);
+        if( wantarray and !@_ ) {
+            return (CORE::caller($height))[0..2];
+        }
+        else {
+            return CORE::caller($height);
+        }
     }
 }
 
-sub _uplevel_caller (;$) {
+sub _uplevel_caller (;$) { ## no critic Prototypes
     my $height = $_[0] || 0;
 
     # shortcut if no uplevels have been called
@@ -61,7 +115,7 @@ sub _uplevel_caller (;$) {
     # to skip this function's caller
     return $Caller_Proxy->( $height + 1 ) if ! @Up_Frames;
 
-#line 172
+#line 232
 
     my $saw_uplevel = 0;
     my $adjust = 0;
@@ -85,7 +139,15 @@ sub _uplevel_caller (;$) {
 
     # For returning values, we pass through the call to the proxy caller
     # function, just at a higher stack level
-    my @caller = $Caller_Proxy->($height + $adjust + 1);
+    my @caller;
+    if ( CORE::caller() eq 'DB' ) {
+        # passthrough the @DB::args trick
+        package DB;
+        @caller = $Sub::Uplevel::Caller_Proxy->($height + $adjust + 1);
+    }
+    else {
+        @caller = $Caller_Proxy->($height + $adjust + 1);
+    }
 
     if( wantarray ) {
         if( !@_ ) {
@@ -98,7 +160,6 @@ sub _uplevel_caller (;$) {
     }
 }
 
-#line 274
-
+#line 358
 
 1;

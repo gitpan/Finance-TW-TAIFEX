@@ -9,7 +9,7 @@ build_requires:
 configure_requires:
   ExtUtils::MakeMaker: 6.42
 distribution_type: module
-generated_by: 'Module::Install version 0.91'
+generated_by: 'Module::Install version 0.95'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -26,10 +26,10 @@ requires:
   File::ShareDir: 0
   List::MoreUtils: 0
   Moose: 0
-  MooseX::AttributeHelpers: 0
   MooseX::Traits: 0
   MooseX::Types::DateTime: 0
   perl: 5.8.1
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.29
+  repository: git://github.com/clkao/Finance-TW-TAIFEX.git
+version: 0.30

@@ -4,14 +4,14 @@ use DateTime;
 use Try::Tiny;
 use File::ShareDir qw(dist_dir);
 use List::MoreUtils qw(firstidx);
-use MooseX::AttributeHelpers;
 use MooseX::Types::DateTime;
+use HTTP::Request::Common qw(POST);
 
 use Finance::TW::TAIFEX::Product;
 use Finance::TW::TAIFEX::Contract;
 
 use 5.008_001;
-our $VERSION = '0.29';
+our $VERSION = '0.30';
 
 has context_date => ( is => "rw", isa => "DateTime",
                       default => sub { DateTime->now },
@@ -20,12 +20,12 @@ has context_date => ( is => "rw", isa => "DateTime",
 has calendar => (is => "ro", isa => "HashRef", default => sub { {} });
 
 has products => (
-    metaclass => 'Collection::Hash',
+    traits => ['Hash'],
     is => "ro",
     isa => "HashRef[Finance::TW::TAIFEX::Product]",
-    provides  => {
-        exists    => 'has_product',
-        get       => 'product',
+    handles  => {
+        has_product => 'exists',
+        product     => 'get',
     },
     lazy_build => 1,
 );
@@ -42,21 +42,17 @@ sub _build_products {
                TXO TEO TFO MSO XIO GTO)),
     };
 
-=begin comment
-
-        (map { $_ => Finance::TW::TAIFEX::Product->new_with_traits(
-            traits => ['Settlement::ThirdToLastDayOfMonth'],
-            exchange => $self,
-            name => $_,
-        ) } qw(TGF TGO)),
-
-        (GBF => Finance::TW::TAIFEX::Product->new_with_traits(
-            traits => ['Settlement::SecondWednesday'],
-            exchange => $self,
-            name => 'GBF',
-        )),
-
-=cut
+#        (map { $_ => Finance::TW::TAIFEX::Product->new_with_traits(
+#            traits => ['Settlement::ThirdToLastDayOfMonth'],
+#            exchange => $self,
+#            name => $_,
+#        ) } qw(TGF TGO)),
+#
+#        (GBF => Finance::TW::TAIFEX::Product->new_with_traits(
+#            traits => ['Settlement::SecondWednesday'],
+#            exchange => $self,
+#            name => 'GBF',
+#        )),
 
 }
 
@@ -232,7 +228,59 @@ sub daily_futures_uri {
     return "http://www.taifex.com.tw/DailyDownload/Daily_@{[ $date->ymd('_') ]}.zip";
 }
 
-=head2 daily_futures_uri DATE
+=head2 interday_futures_request($product, [$DATE])
+
+Returns a HTTP::Request object that fetches futures monthly interday
+csv file for $product of $DATE.
+
+=cut
+
+sub interday_futures_request {
+    my ($self, $product, $date) = @_;
+    $date ||= $self->context_date;
+    my $from = $date->clone->truncate( to => 'month' );
+    my $to = $from->clone->add( months => 1 )->subtract( days => 1 );
+    return POST 'http://www.taifex.com.tw/chinese/3/3_1_2dl.asp',
+      [ goday          => '',
+        DATA_DATE      => $from->ymd('/'),
+        DATA_DATE1     => $to->ymd('/'),
+        DATA_DATE_Y    => $from->year,
+        DATA_DATE_M    => $from->month,
+        DATA_DATE_D    => $from->day,
+        DATA_DATE_Y1   => $to->year,
+        DATA_DATE_M1   => $to->month,
+        DATA_DATE_D1   => $to->day,
+        commodity_id2t => '',
+        COMMODITY_ID   => $product ];
+}
+
+=head2 interday_options_request($product, [$DATE])
+
+Returns a HTTP::Request object that fetches options monthly interday
+csv file for $product of $DATE.
+
+=cut
+
+sub interday_options_request {
+    my ($self, $product, $date) = @_;
+    $date ||= $self->context_date;
+    my $from = $date->clone->truncate( to => 'month' );
+    my $to = $from->clone->add( months => 1 )->subtract( days => 1 );
+    return POST 'http://www.taifex.com.tw/chinese/3/3_2_3_b.asp',
+      [ goday          => '',
+        DATA_DATE      => $from->ymd('/'),
+        DATA_DATE1     => $to->ymd('/'),
+        DATA_DATE_Y    => $from->year,
+        DATA_DATE_M    => $from->month,
+        DATA_DATE_D    => $from->day,
+        DATA_DATE_Y1   => $to->year,
+        DATA_DATE_M1   => $to->month,
+        DATA_DATE_D1   => $to->day,
+        COMMODITY_ID   => $product.'%' ];
+}
+
+
+=head2 daily_options_uri DATE
 
 Returns the URI of the official TAIFEX options trading records for DATE.
 

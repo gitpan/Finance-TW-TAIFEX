@@ -11,10 +11,10 @@ use Finance::TW::TAIFEX::Product;
 use Finance::TW::TAIFEX::Contract;
 
 use 5.008_001;
-our $VERSION = '0.30';
+our $VERSION = '0.31';
 
 has context_date => ( is => "rw", isa => "DateTime",
-                      default => sub { DateTime->now },
+                      default => sub { DateTime->now(time_zone => 'Asia/Taipei') },
                       coerce => 1);
 
 has calendar => (is => "ro", isa => "HashRef", default => sub { {} });

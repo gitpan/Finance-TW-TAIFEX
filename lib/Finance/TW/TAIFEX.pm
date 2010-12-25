@@ -1,17 +1,18 @@
 package Finance::TW::TAIFEX;
-use Moose;
+use Any::Moose;
 use DateTime;
 use Try::Tiny;
 use File::ShareDir qw(dist_dir);
 use List::MoreUtils qw(firstidx);
-use MooseX::Types::DateTime;
+use Any::Moose 'X::Types::DateTime';
+require MouseX::NativeTraits if Any::Moose->mouse_is_preferred;
 use HTTP::Request::Common qw(POST);
 
 use Finance::TW::TAIFEX::Product;
 use Finance::TW::TAIFEX::Contract;
 
 use 5.008_001;
-our $VERSION = '0.31';
+our $VERSION = '0.32';
 
 has context_date => ( is => "rw", isa => "DateTime",
                       default => sub { DateTime->now(time_zone => 'Asia/Taipei') },
@@ -312,6 +313,6 @@ L<http://www.taifex.com.tw/>
 =cut
 
 __PACKAGE__->meta->make_immutable;
-no Moose;
+no Any::Moose;
 1;
 

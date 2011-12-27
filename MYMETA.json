@@ -1,0 +1,63 @@
+{
+   "abstract" : "Helper functions for Taiwan Futures Exchange",
+   "author" : [
+      "Chia-liang Kao <clkao@clkao.org>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Module::Install version 1.02, CPAN::Meta::Converter version 2.112150",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Finance-TW-TAIFEX",
+   "no_index" : {
+      "directory" : [
+         "inc",
+         "share",
+         "t",
+         "xt"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.42",
+            "Test::More" : 0
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.42"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Any::Moose" : "0.04",
+            "Archive::Zip" : 0,
+            "DateTime" : 0,
+            "DateTime::Format::Strptime" : 0,
+            "File::ShareDir" : 0,
+            "HTTP::Request::Common" : 0,
+            "LWP::Simple" : 0,
+            "List::MoreUtils" : 0,
+            "MouseX::NativeTraits" : 0,
+            "MouseX::Traits" : 0,
+            "MouseX::Types::DateTime" : 0,
+            "perl" : "5.008001"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "license" : [
+         "http://dev.perl.org/licenses/"
+      ],
+      "repository" : {
+         "url" : "git://git.tradroom.com/lib/Finance-TW-TAIFEX"
+      }
+   },
+   "version" : "0.35"
+}

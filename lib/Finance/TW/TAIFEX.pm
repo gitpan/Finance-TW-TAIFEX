@@ -1,18 +1,22 @@
 package Finance::TW::TAIFEX;
+use strict;
 use Any::Moose;
 use DateTime;
+use DateTime::Format::Strptime;
 use Try::Tiny;
 use File::ShareDir qw(dist_dir);
 use List::MoreUtils qw(firstidx);
 use Any::Moose 'X::Types::DateTime';
 require MouseX::NativeTraits if Any::Moose->mouse_is_preferred;
 use HTTP::Request::Common qw(POST);
+use LWP::Simple 'getstore';
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 
 use Finance::TW::TAIFEX::Product;
 use Finance::TW::TAIFEX::Contract;
 
 use 5.008_001;
-our $VERSION = '0.34';
+our $VERSION = '0.35';
 
 has context_date => ( is => "rw", isa => "DateTime",
                       default => sub { DateTime->now(time_zone => 'Asia/Taipei') },
@@ -108,9 +112,13 @@ Checks if the given product exists.
 
 =cut
 
+my $Strp = DateTime::Format::Strptime->new( pattern => '%F', time_zone => 'Asia/Taipei');
+
 sub BUILDARGS {
     my $class = shift;
-    return $#_ == 0  ? { context_date => $_[0] } : { @_ };
+    return { @_ } unless $#_ == 0;
+    return { } unless $_[0];
+    return { context_date => ref $_[0] ? $_[0] : $Strp->parse_datetime($_[0]) }
 }
 
 =head2 contract NAME YEAR MONTH
@@ -154,9 +162,9 @@ sub calendar_for {
     return $self->calendar->{$year}
         if $self->calendar->{$year};
 
-    my $root = try { dist_dir('Finance-TW-TAIFEX') } || 'share' ;
-
-    $self->calendar->{$year} = $self->_read_cal("$root/calendar/$year.txt");
+    my $dist_dir = File::Spec->rel2abs("../../../share", File::Basename::dirname($INC{"Finance/TW/TAIFEX.pm"}));
+    $dist_dir = try { dist_dir('Finance-TW-TAIFEX') || 'share' } unless -e $dist_dir;
+    $self->calendar->{$year} = $self->_read_cal("$dist_dir/calendar/$year.txt");
 }
 
 =head2 is_trading_day [DATE]
@@ -175,7 +183,6 @@ sub is_trading_day {
 =head2 next_trading_day [DATE]
 
 Returns the next known trading day in string after the given DATE.
-This doesn't work across years yet.
 
 =cut
 
@@ -186,14 +193,17 @@ sub next_trading_day {
     my $cal = $self->calendar_for($date->year);
     my $d = $date->ymd;
     my $nth = firstidx { $_ gt $d } @{$cal};
-    return if $nth == $#{$cal};
+
+    if ($nth < 0) {
+        return $self->calendar_for($date->year + 1)->[0];
+    }
+
     return $cal->[$nth];
 }
 
 =head2 previous_trading_day [DATE]
 
 Returns the previous known trading day in string after the given DATE.
-This doesn't work across years yet.
 
 =cut
 
@@ -207,7 +217,9 @@ sub previous_trading_day {
     die "$date not a known trading day"
         if $nth < 0;
 
-    return unless $nth + $offset >= 0;
+    if ($nth + $offset < 0) {
+        return $self->calendar_for($date->year - 1)->[-1];
+    }
 
     return $cal->[$nth + $offset];
 }
@@ -291,6 +303,37 @@ sub daily_options_uri {
     my ($self, $date) = @_;
     $date ||= $self->context_date;
     return "http://www.taifex.com.tw/OptionsDailyDownload/OptionsDaily_@{[ $date->ymd('_') ]}.zip";
+}
+
+=head2 ensure_rpt DIR, TYPE, PREFIX
+
+=cut
+
+sub ensure_rpt {
+    my ($self, $rpt_dir, $type, $prefix) = @_;
+    my $date = $self->context_date;
+    my $rpt_f = "$rpt_dir/".$date->ymd('-').".rpt";
+
+    unless (-s $rpt_f) {
+        my $rpt = $prefix.$date->ymd('_' ).".rpt";
+        my $f = $self->can('daily_'.$type.'_uri') or die "unknown type: $type";
+        my $url = $self->$f();
+        my $tmp = "/tmp/taifex-$type-".$date->ymd('-').".zip";
+        unless (-s $tmp) {
+            my $rc = getstore($url => $tmp);
+
+            die("failed to fetch $url: $rc")
+                if HTTP::Status::is_error($rc);
+        }
+        my $zip = Archive::Zip->new();
+        unless ( $zip->read( $tmp ) == AZ_OK ) {
+            unlink( $tmp );
+            die("Unable to read zip file $tmp");
+        }
+        unless ( $zip->extractMember($rpt, $rpt_f) == AZ_OK ) {
+            die("Unable to extract $rpt from $tmp");
+        }
+    }
 }
 
 =head1 CAVEATS

@@ -7,8 +7,8 @@ build_requires:
   Test::More: 0
 configure_requires:
   ExtUtils::MakeMaker: 6.42
-distribution_type: module
-generated_by: 'Module::Install version 1.02'
+dynamic_config: 0
+generated_by: 'Module::Install version 1.02, CPAN::Meta::Converter version 2.112150'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -20,9 +20,6 @@ no_index:
     - share
     - t
     - xt
-recommends:
-  MooseX::Traits: 0
-  MooseX::Types::DateTime: 0
 requires:
   Any::Moose: 0.04
   Archive::Zip: 0
@@ -35,7 +32,7 @@ requires:
   MouseX::NativeTraits: 0
   MouseX::Traits: 0
   MouseX::Types::DateTime: 0
-  perl: 5.8.1
+  perl: 5.008001
 resources:
   license: http://dev.perl.org/licenses/
   repository: git://git.tradroom.com/lib/Finance-TW-TAIFEX

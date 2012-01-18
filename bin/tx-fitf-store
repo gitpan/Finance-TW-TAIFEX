@@ -8,10 +8,18 @@ use Finance::TW::TAIFEX;
 BEGIN {
 eval 'require Finance::FITF; Finance::FITF->import; 1'
     or die 'Finance::FITF required';
+eval 'require Log::Log4perl; 1'
+    or die 'Log::Log4perl required';
 }
-use Log::Log4perl;
-Log::Log4perl::init_and_watch('gt-log.conf', 60) if -e 'gt-log.conf';
-my $logger = Log::Log4perl->get_logger('gt.datamaint');
+if (-e 'log.conf') {
+    Log::Log4perl::init('log.conf');
+}
+else {
+    use Log::Log4perl::Level;
+    Log::Log4perl->easy_init($ERROR);
+
+}
+my $logger = Log::Log4perl->get_logger('taifex');
 
 my $rpt_dir = shift or die 'rpt dir required';
 my $fitf_db = shift or die 'fitf dir required';
@@ -27,7 +35,6 @@ $taifex->is_trading_day
 
 my $date_dt = $taifex->context_date;
 my $date = $date_dt->ymd('-');
-warn $contract;
 my $month = $taifex->product($contract)->near_term($date_dt);
 
 my $rpt_f = "$rpt_dir/$date.rpt";
@@ -36,7 +43,14 @@ my $fitf_file = DateTime::Format::Strptime->new( pattern => $fitf_db, time_zone 
 open my $fitf_fh, '>', "$fitf_file"
     or $logger->error_die("unable to open $fitf_file for writing: $!");
 
-open my $rpt_fh, '<' , $rpt_f
+my $layer = '';
+if (-e "$rpt_f.bz2") {
+    $rpt_f .= '.bz2';
+    require PerlIO::via::Bzip2;
+    $layer .= ':via(Bzip2)';
+}
+
+open my $rpt_fh, '<'.$layer , $rpt_f
     or $logger->error_die("unable to open $rpt_f for read: $!");
 $date =~ s/-//g;
 my $writer = Finance::FITF->new_writer(
